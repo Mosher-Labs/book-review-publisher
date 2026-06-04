@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/mosher-labs/book-review-publisher/internal/publisher"
 )
@@ -16,17 +17,34 @@ func main() {
 		os.Exit(1)
 	}
 
+	authToken := os.Getenv("AUTH_TOKEN")
+	if authToken == "" {
+		slog.Error("AUTH_TOKEN environment variable is required")
+		os.Exit(1)
+	}
+
 	pub := publisher.New(pat)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handleHealth)
-	mux.HandleFunc("POST /publish", pub.HandlePublish)
+	mux.HandleFunc("POST /publish", requireBearer(authToken, pub.HandlePublish))
 
 	addr := ":8080"
 	slog.Info("starting server", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil { //nolint:gosec
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
+	}
+}
+
+func requireBearer(token string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if !ok || bearer != token {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
 	}
 }
 

@@ -31,6 +31,11 @@ spec:
                 secretKeyRef:
                   name: book-review-publisher-secrets
                   key: github-pat
+            - name: AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: book-review-publisher-secrets
+                  key: auth-token
           resources:
             limits:
               cpu: 200m
