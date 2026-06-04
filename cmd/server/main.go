@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/mosher-labs/book-review-publisher/internal/publisher"
 )
 
@@ -29,12 +33,55 @@ func main() {
 	mux.HandleFunc("GET /health", handleHealth)
 	mux.HandleFunc("POST /publish", requireBearer(authToken, pub.HandlePublish))
 
+	mcpHandler := buildMCPHandler(pub)
+	mux.Handle("/mcp", requireBearer(authToken, mcpHandler.ServeHTTP))
+
 	addr := ":8080"
 	slog.Info("starting server", "addr", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil { //nolint:gosec
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+func buildMCPHandler(pub *publisher.Publisher) http.Handler {
+	s := server.NewMCPServer(
+		"book-review-publisher",
+		"1.0.0",
+		server.WithToolCapabilities(true),
+	)
+
+	publishTool := mcp.NewTool("publish_book_review",
+		mcp.WithDescription("Publishes a book review to benniemosher.com by committing the markdown post and cover image, then opening a pull request."),
+		mcp.WithString("markdown",
+			mcp.Required(),
+			mcp.Description("The full Jekyll post markdown including front matter (title, date, layout, etc.)"),
+		),
+		mcp.WithString("image_url",
+			mcp.Required(),
+			mcp.Description("Public URL of the book cover image to commit to assets/img/book-covers/"),
+		),
+	)
+
+	s.AddTool(publishTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		markdown, err := req.RequireString("markdown")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		imageURL, err := req.RequireString("image_url")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		prURL, err := pub.Publish(ctx, markdown, imageURL)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("publish failed: %s", err.Error())), nil
+		}
+
+		return mcp.NewToolResultText(fmt.Sprintf("Published! PR: %s", prURL)), nil
+	})
+
+	return server.NewStreamableHTTPServer(s)
 }
 
 func requireBearer(token string, next http.HandlerFunc) http.HandlerFunc {

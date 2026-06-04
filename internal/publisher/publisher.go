@@ -55,7 +55,7 @@ func (p *Publisher) HandlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prURL, err := p.publish(r.Context(), req)
+	prURL, err := p.Publish(r.Context(), req.Markdown, req.ImageURL)
 	if err != nil {
 		slog.Error("publish failed", "error", err)
 		http.Error(w, "publish failed: "+err.Error(), http.StatusInternalServerError)
@@ -66,6 +66,11 @@ func (p *Publisher) HandlePublish(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(publishResponse{PRURL: prURL}); err != nil {
 		slog.Error("encode response failed", "error", err)
 	}
+}
+
+// Publish commits the markdown post and cover image to benniemosher/benniemosher.com and opens a PR.
+func (p *Publisher) Publish(ctx context.Context, markdown, imageURL string) (string, error) {
+	return p.publish(ctx, publishRequest{Markdown: markdown, ImageURL: imageURL})
 }
 
 func (p *Publisher) publish(ctx context.Context, req publishRequest) (string, error) {
