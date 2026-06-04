@@ -79,13 +79,15 @@ Then write the review body. Rules:
 - Do NOT repeat the title as a heading — the layout renders it.
 - Do NOT include a markdown image for the cover — the publisher injects it.
 - Do NOT use "---" horizontal rules.
+- START the body with a real opening paragraph (1-3 sentences). This becomes
+  the excerpt shown on the home page listing. Put ratings/metadata after it.
 - Format book metadata as a markdown list, not inline bold pairs:
   - **Author:** Name
   - **Format:** Kindle / Paperback / etc.
   - **Read:** dates
   - **Era:** timeline info
   - **Series:** series name
-- Write the rest of the review as normal paragraphs.`),
+- Write the rest of the review as normal paragraphs after the metadata.`),
 		),
 		mcp.WithString("image_url",
 			mcp.Required(),

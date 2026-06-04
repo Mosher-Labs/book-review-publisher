@@ -204,8 +204,6 @@ func sanitizeFrontMatter(fm string) string {
 	}
 
 	var out []string
-	descriptionVal := ""
-	hasExcerpt := false
 
 	for _, line := range strings.Split(inner, "\n") {
 		colon := strings.Index(line, ": ")
@@ -215,13 +213,6 @@ func sanitizeFrontMatter(fm string) string {
 		}
 		key := strings.TrimSpace(line[:colon])
 		val := strings.TrimSpace(line[colon+2:])
-
-		if key == "excerpt" {
-			hasExcerpt = true
-		}
-		if key == "description" {
-			descriptionVal = val
-		}
 
 		// Convert "categories: foo bar" to a YAML list.
 		if key == "categories" &&
@@ -237,12 +228,6 @@ func sanitizeFrontMatter(fm string) string {
 		// failures in Ruby's Psych parser (the Jekyll YAML backend).
 		val = quoteYAMLValue(val)
 		out = append(out, key+": "+val)
-	}
-
-	// Use description as excerpt so the listing page shows meaningful text
-	// instead of whatever the first paragraph of the post body happens to be.
-	if !hasExcerpt && descriptionVal != "" {
-		out = append(out, "excerpt: "+quoteYAMLValue(descriptionVal))
 	}
 
 	return prefix + strings.Join(out, "\n") + suffix
