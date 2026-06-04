@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	repoOwner = "benniemosher"
-	repoName  = "me"
+	repoOwner  = "benniemosher"
+	repoName   = "benniemosher.com"
 	baseBranch = "main"
 )
 
