@@ -159,12 +159,14 @@ func injectCoverImage(markdown, slug, ext string) string {
 		}
 	}
 
-	// Remove any existing markdown image pointing at the book cover.
+	// Remove any existing markdown image pointing at the book cover, and strip
+	// standalone "---" horizontal rules (they render poorly on this site).
 	var filtered []string
 	for _, l := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(l)
 		if strings.Contains(l, "/assets/img/book-covers/"+slug) ||
-			(strings.HasPrefix(strings.TrimSpace(l), "![") &&
-				strings.Contains(l, "book-cover")) {
+			(strings.HasPrefix(trimmed, "![") && strings.Contains(l, "book-cover")) ||
+			trimmed == "---" {
 			continue
 		}
 		filtered = append(filtered, l)
@@ -202,19 +204,29 @@ func sanitizeFrontMatter(fm string) string {
 	}
 
 	var out []string
+	descriptionVal := ""
+	hasExcerpt := false
+
 	for _, line := range strings.Split(inner, "\n") {
 		colon := strings.Index(line, ": ")
 		if colon < 0 {
 			out = append(out, line)
 			continue
 		}
-		key := line[:colon]
+		key := strings.TrimSpace(line[:colon])
 		val := strings.TrimSpace(line[colon+2:])
 
+		if key == "excerpt" {
+			hasExcerpt = true
+		}
+		if key == "description" {
+			descriptionVal = val
+		}
+
 		// Convert "categories: foo bar" to a YAML list.
-		if strings.TrimSpace(key) == "categories" &&
+		if key == "categories" &&
 			!strings.HasPrefix(val, "-") && !strings.HasPrefix(val, "[") {
-			out = append(out, strings.TrimSpace(key)+":")
+			out = append(out, key+":")
 			for _, c := range strings.Fields(val) {
 				out = append(out, "  - "+c)
 			}
@@ -223,17 +235,26 @@ func sanitizeFrontMatter(fm string) string {
 
 		// Quote values that contain ": " or double-quotes to avoid YAML parse
 		// failures in Ruby's Psych parser (the Jekyll YAML backend).
-		if strings.Contains(val, ": ") || strings.Contains(val, `"`) {
-			if !strings.HasPrefix(val, `"`) {
-				// Wrap in single quotes; escape any internal single quotes.
-				val = "'" + strings.ReplaceAll(val, "'", "''") + "'"
-			}
-		}
+		val = quoteYAMLValue(val)
+		out = append(out, key+": "+val)
+	}
 
-		out = append(out, strings.TrimSpace(key)+": "+val)
+	// Use description as excerpt so the listing page shows meaningful text
+	// instead of whatever the first paragraph of the post body happens to be.
+	if !hasExcerpt && descriptionVal != "" {
+		out = append(out, "excerpt: "+quoteYAMLValue(descriptionVal))
 	}
 
 	return prefix + strings.Join(out, "\n") + suffix
+}
+
+func quoteYAMLValue(val string) string {
+	if strings.Contains(val, ": ") || strings.Contains(val, `"`) {
+		if !strings.HasPrefix(val, `"`) && !strings.HasPrefix(val, "'") {
+			return "'" + strings.ReplaceAll(val, "'", "''") + "'"
+		}
+	}
+	return val
 }
 
 // parsePostMeta extracts date, title, and slug from Jekyll front matter.
