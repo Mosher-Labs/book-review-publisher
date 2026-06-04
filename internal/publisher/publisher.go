@@ -165,8 +165,7 @@ func injectCoverImage(markdown, slug, ext string) string {
 	for _, l := range strings.Split(body, "\n") {
 		trimmed := strings.TrimSpace(l)
 		if strings.Contains(l, "/assets/img/book-covers/"+slug) ||
-			(strings.HasPrefix(trimmed, "![") && strings.Contains(l, "book-cover")) ||
-			trimmed == "---" {
+			(strings.HasPrefix(trimmed, "![") && strings.Contains(l, "book-cover")) {
 			continue
 		}
 		filtered = append(filtered, l)
