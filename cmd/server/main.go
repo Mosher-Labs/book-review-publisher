@@ -64,7 +64,7 @@ func buildMCPHandler(pub *publisher.Publisher) http.Handler {
 		mcp.WithDescription("Publishes a book review to benniemosher.com by committing the markdown post and cover image, then opening a pull request."),
 		mcp.WithString("markdown",
 			mcp.Required(),
-			mcp.Description(`The full Jekyll post markdown. Use this front matter format:
+			mcp.Description(`The full Jekyll post markdown. Use exactly this front matter format:
 
 ---
 layout: post
@@ -72,10 +72,22 @@ title: "Book Title Here"
 date: YYYY-MM-DD
 categories:
   - book reviews
-description: One-sentence description of the review.
+description: One-sentence description for the listing page excerpt.
 ---
 
-Then write the review body. Do NOT repeat the title as a heading — the layout renders it automatically. Do NOT include a markdown image for the cover — the publisher injects it.`),
+Then write the review body. Rules:
+- Do NOT repeat the title as a heading — the layout renders it.
+- Do NOT include a markdown image for the cover — the publisher injects it.
+- Do NOT use "---" horizontal rules.
+- START the body with a real opening paragraph (1-3 sentences). This becomes
+  the excerpt shown on the home page listing. Put ratings/metadata after it.
+- Format book metadata as a markdown list, not inline bold pairs:
+  - **Author:** Name
+  - **Format:** Kindle / Paperback / etc.
+  - **Read:** dates
+  - **Era:** timeline info
+  - **Series:** series name
+- Write the rest of the review as normal paragraphs after the metadata.`),
 		),
 		mcp.WithString("image_url",
 			mcp.Required(),
