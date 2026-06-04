@@ -131,9 +131,9 @@ func (p *Publisher) publish(ctx context.Context, req publishRequest) (string, er
 	return pr.GetHTMLURL(), nil
 }
 
-// injectCoverImage replaces any existing markdown image referencing the book
-// cover with a properly-sized HTML img tag, and removes a redundant H2 title
-// that duplicates the front matter title (the layout renders it already).
+// injectCoverImage sanitizes the front matter, removes a redundant H2 title
+// and any existing markdown image for the cover, then injects a properly-sized
+// HTML img tag after the first paragraph so it doesn't end up in the excerpt.
 func injectCoverImage(markdown, slug, ext string) string {
 	imgTag := fmt.Sprintf(
 		`<img src="/assets/img/book-covers/%s.%s" alt="Book cover" `+
@@ -141,30 +141,27 @@ func injectCoverImage(markdown, slug, ext string) string {
 		slug, ext,
 	)
 
-	// Find where the front matter ends so we can work on the body only.
 	body := markdown
 	frontMatter := ""
 	if strings.HasPrefix(markdown, "---") {
 		end := strings.Index(markdown[3:], "---")
 		if end >= 0 {
-			cut := end + 6 // len("---") + len("---")
-			frontMatter = markdown[:cut]
+			cut := end + 6
+			frontMatter = sanitizeFrontMatter(markdown[:cut])
 			body = strings.TrimLeft(markdown[cut:], "\n")
 		}
 	}
 
-	// Remove a leading H2 that repeats the title (already rendered by layout).
+	// Remove a leading H2 that repeats the title (layout renders it already).
 	if strings.HasPrefix(body, "## ") {
-		nl := strings.Index(body, "\n")
-		if nl >= 0 {
+		if nl := strings.Index(body, "\n"); nl >= 0 {
 			body = strings.TrimLeft(body[nl:], "\n")
 		}
 	}
 
-	// Remove any existing markdown image pointing at book-covers for this slug.
-	lines := strings.Split(body, "\n")
-	filtered := lines[:0]
-	for _, l := range lines {
+	// Remove any existing markdown image pointing at the book cover.
+	var filtered []string
+	for _, l := range strings.Split(body, "\n") {
 		if strings.Contains(l, "/assets/img/book-covers/"+slug) ||
 			(strings.HasPrefix(strings.TrimSpace(l), "![") &&
 				strings.Contains(l, "book-cover")) {
@@ -172,15 +169,71 @@ func injectCoverImage(markdown, slug, ext string) string {
 		}
 		filtered = append(filtered, l)
 	}
-	body = strings.Join(filtered, "\n")
+	body = strings.TrimSpace(strings.Join(filtered, "\n"))
 
-	// Prepend the constrained img tag.
-	body = imgTag + "\n\n" + strings.TrimLeft(body, "\n")
+	// Insert the img tag after the first paragraph so the excerpt is text,
+	// not an image. If there's no paragraph break, prepend it.
+	if sep := strings.Index(body, "\n\n"); sep >= 0 {
+		body = body[:sep] + "\n\n" + imgTag + "\n\n" + strings.TrimLeft(body[sep:], "\n")
+	} else {
+		body = imgTag + "\n\n" + body
+	}
 
 	if frontMatter != "" {
-		return frontMatter + "\n" + body
+		return frontMatter + "\n" + body + "\n"
 	}
-	return body
+	return body + "\n"
+}
+
+// sanitizeFrontMatter re-emits front matter with safely quoted field values so
+// Ruby's YAML parser doesn't choke on colons or double-quotes inside values.
+func sanitizeFrontMatter(fm string) string {
+	// fm is "---\n...\n---" with no trailing newline required.
+	inner := fm
+	prefix := ""
+	if strings.HasPrefix(fm, "---") {
+		inner = fm[3:]
+		prefix = "---"
+	}
+	suffix := ""
+	if idx := strings.LastIndex(inner, "---"); idx >= 0 {
+		suffix = inner[idx:]
+		inner = inner[:idx]
+	}
+
+	var out []string
+	for _, line := range strings.Split(inner, "\n") {
+		colon := strings.Index(line, ": ")
+		if colon < 0 {
+			out = append(out, line)
+			continue
+		}
+		key := line[:colon]
+		val := strings.TrimSpace(line[colon+2:])
+
+		// Convert "categories: foo bar" to a YAML list.
+		if strings.TrimSpace(key) == "categories" &&
+			!strings.HasPrefix(val, "-") && !strings.HasPrefix(val, "[") {
+			out = append(out, strings.TrimSpace(key)+":")
+			for _, c := range strings.Fields(val) {
+				out = append(out, "  - "+c)
+			}
+			continue
+		}
+
+		// Quote values that contain ": " or double-quotes to avoid YAML parse
+		// failures in Ruby's Psych parser (the Jekyll YAML backend).
+		if strings.Contains(val, ": ") || strings.Contains(val, `"`) {
+			if !strings.HasPrefix(val, `"`) {
+				// Wrap in single quotes; escape any internal single quotes.
+				val = "'" + strings.ReplaceAll(val, "'", "''") + "'"
+			}
+		}
+
+		out = append(out, strings.TrimSpace(key)+": "+val)
+	}
+
+	return prefix + strings.Join(out, "\n") + suffix
 }
 
 // parsePostMeta extracts date, title, and slug from Jekyll front matter.
