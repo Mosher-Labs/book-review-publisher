@@ -64,7 +64,18 @@ func buildMCPHandler(pub *publisher.Publisher) http.Handler {
 		mcp.WithDescription("Publishes a book review to benniemosher.com by committing the markdown post and cover image, then opening a pull request."),
 		mcp.WithString("markdown",
 			mcp.Required(),
-			mcp.Description("The full Jekyll post markdown including front matter (title, date, layout, etc.)"),
+			mcp.Description(`The full Jekyll post markdown. Use this front matter format:
+
+---
+layout: post
+title: "Book Title Here"
+date: YYYY-MM-DD
+categories:
+  - book reviews
+description: One-sentence description of the review.
+---
+
+Then write the review body. Do NOT repeat the title as a heading — the layout renders it automatically. Do NOT include a markdown image for the cover — the publisher injects it.`),
 		),
 		mcp.WithString("image_url",
 			mcp.Required(),
