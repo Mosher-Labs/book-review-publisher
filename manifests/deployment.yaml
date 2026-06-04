@@ -36,6 +36,16 @@ spec:
                 secretKeyRef:
                   name: book-review-publisher-auth
                   key: auth-token
+            - name: OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: book-review-publisher-auth
+                  key: oauth-client-id
+            - name: OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: book-review-publisher-auth
+                  key: oauth-client-secret
           resources:
             limits:
               cpu: 200m

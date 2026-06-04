@@ -11,6 +11,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mosher-labs/book-review-publisher/internal/auth"
 	"github.com/mosher-labs/book-review-publisher/internal/publisher"
 )
 
@@ -27,14 +28,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	oauthClientID := os.Getenv("OAUTH_CLIENT_ID")
+	if oauthClientID == "" {
+		slog.Error("OAUTH_CLIENT_ID environment variable is required")
+		os.Exit(1)
+	}
+
+	oauthClientSecret := os.Getenv("OAUTH_CLIENT_SECRET")
+	if oauthClientSecret == "" {
+		slog.Error("OAUTH_CLIENT_SECRET environment variable is required")
+		os.Exit(1)
+	}
+
 	pub := publisher.New(pat)
+	oauth := auth.New(oauthClientID, oauthClientSecret, authToken)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handleHealth)
 	mux.HandleFunc("POST /publish", requireBearer(authToken, pub.HandlePublish))
-
-	mcpHandler := buildMCPHandler(pub)
-	mux.Handle("/mcp", requireBearer(authToken, mcpHandler.ServeHTTP))
+	mux.HandleFunc("GET /.well-known/oauth-authorization-server", oauth.HandleMeta)
+	mux.HandleFunc("POST /token", oauth.HandleToken)
+	mux.Handle("/mcp", requireBearer(authToken, buildMCPHandler(pub).ServeHTTP))
 
 	addr := ":8080"
 	slog.Info("starting server", "addr", addr)
