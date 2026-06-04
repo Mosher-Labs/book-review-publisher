@@ -79,6 +79,7 @@ func (p *Publisher) publish(ctx context.Context, req publishRequest) (string, er
 
 	postPath := fmt.Sprintf("_posts/%s-%s.md", date, slug)
 	imagePath := fmt.Sprintf("assets/img/book-covers/%s.%s", slug, imageExt)
+	markdown := injectCoverImage(req.Markdown, slug, imageExt)
 	branchName := fmt.Sprintf("book-review/%s-%s", date, slug)
 
 	imageData, err := downloadImage(req.ImageURL)
@@ -110,7 +111,7 @@ func (p *Publisher) publish(ctx context.Context, req publishRequest) (string, er
 
 	_, _, err = p.gh.Repositories.CreateFile(ctx, repoOwner, repoName, postPath, &github.RepositoryContentFileOptions{
 		Message: github.Ptr(fmt.Sprintf("feat: add book review for %s", slug)),
-		Content: []byte(req.Markdown),
+		Content: []byte(markdown),
 		Branch:  github.Ptr(branchName),
 	})
 	if err != nil {
@@ -128,6 +129,58 @@ func (p *Publisher) publish(ctx context.Context, req publishRequest) (string, er
 	}
 
 	return pr.GetHTMLURL(), nil
+}
+
+// injectCoverImage replaces any existing markdown image referencing the book
+// cover with a properly-sized HTML img tag, and removes a redundant H2 title
+// that duplicates the front matter title (the layout renders it already).
+func injectCoverImage(markdown, slug, ext string) string {
+	imgTag := fmt.Sprintf(
+		`<img src="/assets/img/book-covers/%s.%s" alt="Book cover" `+
+			`style="max-width:280px;height:auto;float:right;margin:0 0 1rem 1rem;">`,
+		slug, ext,
+	)
+
+	// Find where the front matter ends so we can work on the body only.
+	body := markdown
+	frontMatter := ""
+	if strings.HasPrefix(markdown, "---") {
+		end := strings.Index(markdown[3:], "---")
+		if end >= 0 {
+			cut := end + 6 // len("---") + len("---")
+			frontMatter = markdown[:cut]
+			body = strings.TrimLeft(markdown[cut:], "\n")
+		}
+	}
+
+	// Remove a leading H2 that repeats the title (already rendered by layout).
+	if strings.HasPrefix(body, "## ") {
+		nl := strings.Index(body, "\n")
+		if nl >= 0 {
+			body = strings.TrimLeft(body[nl:], "\n")
+		}
+	}
+
+	// Remove any existing markdown image pointing at book-covers for this slug.
+	lines := strings.Split(body, "\n")
+	filtered := lines[:0]
+	for _, l := range lines {
+		if strings.Contains(l, "/assets/img/book-covers/"+slug) ||
+			(strings.HasPrefix(strings.TrimSpace(l), "![") &&
+				strings.Contains(l, "book-cover")) {
+			continue
+		}
+		filtered = append(filtered, l)
+	}
+	body = strings.Join(filtered, "\n")
+
+	// Prepend the constrained img tag.
+	body = imgTag + "\n\n" + strings.TrimLeft(body, "\n")
+
+	if frontMatter != "" {
+		return frontMatter + "\n" + body
+	}
+	return body
 }
 
 // parsePostMeta extracts date, title, and slug from Jekyll front matter.
