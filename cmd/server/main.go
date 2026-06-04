@@ -34,19 +34,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	oauthClientSecret := os.Getenv("OAUTH_CLIENT_SECRET")
-	if oauthClientSecret == "" {
-		slog.Error("OAUTH_CLIENT_SECRET environment variable is required")
-		os.Exit(1)
-	}
-
 	pub := publisher.New(pat)
-	oauth := auth.New(oauthClientID, oauthClientSecret, authToken)
+	oauth := auth.New(oauthClientID, "", authToken)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handleHealth)
 	mux.HandleFunc("POST /publish", requireBearer(authToken, pub.HandlePublish))
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server", oauth.HandleMeta)
+	mux.HandleFunc("GET /authorize", oauth.HandleAuthorize)
 	mux.HandleFunc("POST /token", oauth.HandleToken)
 	mux.Handle("/mcp", requireBearer(authToken, buildMCPHandler(pub).ServeHTTP))
 
