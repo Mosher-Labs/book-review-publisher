@@ -1,5 +1,6 @@
 ---
-# Add this Application to the mosher-labs/homelab-gitops repo under apps/book-review-publisher/application.yaml
+# This file is the canonical reference. The live copy lives at:
+# mosher-labs/homelab-gitops: apps/book-review-publisher/application.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -10,9 +11,11 @@ metadata:
 spec:
   project: default
   sources:
+    # Sealed secret (github-pat) — lives in homelab-gitops, sync-wave -1
     - repoURL: https://github.com/Mosher-Labs/homelab-gitops.git
       targetRevision: main
       path: apps/book-review-publisher/manifests
+    # App manifests: Deployment, Service, Ingress
     - repoURL: https://github.com/Mosher-Labs/book-review-publisher.git
       targetRevision: main
       path: manifests
