@@ -1,0 +1,33 @@
+---
+# Add this Application to the mosher-labs/homelab-gitops repo under apps/book-review-publisher/application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: book-review-publisher
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/Mosher-Labs/homelab-gitops.git
+      targetRevision: main
+      path: apps/book-review-publisher/manifests
+    - repoURL: https://github.com/Mosher-Labs/book-review-publisher.git
+      targetRevision: main
+      path: manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: book-review-publisher
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

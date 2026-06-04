@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: book-review-publisher
+  namespace: book-review-publisher
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: book-review-publisher.mosher-labs.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: book-review-publisher
+                port:
+                  number: 80

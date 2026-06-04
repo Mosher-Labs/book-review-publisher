@@ -1,0 +1,65 @@
+---
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list-all
+    silent: true
+
+  build:
+    desc: Build the Go binary
+    cmds:
+      - go build -o bin/book-review-publisher ./cmd/server
+
+  run:
+    desc: Run the service locally (requires GITHUB_PAT env var)
+    cmds:
+      - go run ./cmd/server
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...
+
+  test:verbose:
+    desc: Run tests with verbose output
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run pre-commit hooks on all files
+    cmds:
+      - pre-commit run --all-files
+
+  lint:install:
+    desc: Install pre-commit hooks
+    cmds:
+      - pre-commit install --install-hooks
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - gofmt -w .
+
+  docker:build:
+    desc: Build the Docker image
+    cmds:
+      - docker build -t ghcr.io/mosher-labs/book-review-publisher:latest .
+
+  docker:run:
+    desc: Run the Docker image locally (requires GITHUB_PAT env var)
+    cmds:
+      - docker run --rm -p 8080:8080 -e GITHUB_PAT=${GITHUB_PAT} ghcr.io/mosher-labs/book-review-publisher:latest
+
+  publish:example:
+    desc: Send an example publish request to the local server
+    cmds:
+      - |
+        curl -s -X POST http://localhost:8080/publish \
+          -H "Content-Type: application/json" \
+          -d '{
+            "markdown": "---\ntitle: \"Example Book\"\ndate: 2024-01-15\n---\n\nGreat read!",
+            "image_url": "https://via.placeholder.com/300x450.jpg"
+          }' | jq .

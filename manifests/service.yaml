@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: book-review-publisher
+  namespace: book-review-publisher
+spec:
+  selector:
+    app.kubernetes.io/name: book-review-publisher
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
