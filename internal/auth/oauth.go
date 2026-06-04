@@ -1,27 +1,36 @@
 package auth
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	"strings"
+	"sync"
+	"time"
 )
 
-// OAuthServer implements a minimal OAuth 2.0 client credentials flow
+// OAuthServer implements OAuth 2.0 Authorization Code + PKCE flow
 // sufficient for Claude.ai MCP connector authentication.
 type OAuthServer struct {
-	clientID     string
-	clientSecret string
-	// accessToken is the bearer token issued to valid clients.
-	// We reuse the existing AUTH_TOKEN so the MCP handler needs no changes.
+	clientID    string
 	accessToken string
+
+	mu    sync.Mutex
+	codes map[string]authCode
+}
+
+type authCode struct {
+	challenge string
+	expiresAt time.Time
 }
 
 // New creates an OAuthServer.
-func New(clientID, clientSecret, accessToken string) *OAuthServer {
+func New(clientID, _ /* clientSecret */, accessToken string) *OAuthServer {
 	return &OAuthServer{
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		accessToken:  accessToken,
+		clientID:    clientID,
+		accessToken: accessToken,
+		codes:       make(map[string]authCode),
 	}
 }
 
@@ -32,60 +41,109 @@ type tokenResponse struct {
 }
 
 type oauthMeta struct {
-	Issuer                string   `json:"issuer"`
-	TokenEndpoint         string   `json:"token_endpoint"`
-	GrantTypesSupported   []string `json:"grant_types_supported"`
-	TokenEndpointAuthMethods []string `json:"token_endpoint_auth_methods_supported"`
+	Issuer                            string   `json:"issuer"`
+	AuthorizationEndpoint             string   `json:"authorization_endpoint"`
+	TokenEndpoint                     string   `json:"token_endpoint"`
+	ResponseTypesSupported            []string `json:"response_types_supported"`
+	GrantTypesSupported               []string `json:"grant_types_supported"`
+	CodeChallengeMethodsSupported     []string `json:"code_challenge_methods_supported"`
+	TokenEndpointAuthMethods          []string `json:"token_endpoint_auth_methods_supported"`
 }
 
-// HandleMeta serves the OAuth authorization server metadata document.
-func (o *OAuthServer) HandleMeta(w http.ResponseWriter, r *http.Request) {
+func (o *OAuthServer) base(r *http.Request) string {
 	scheme := "https"
 	if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
 		scheme = "http"
 	}
-	base := scheme + "://" + r.Host
+	return scheme + "://" + r.Host
+}
 
+// HandleMeta serves the OAuth authorization server metadata document.
+func (o *OAuthServer) HandleMeta(w http.ResponseWriter, r *http.Request) {
+	base := o.base(r)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(oauthMeta{ //nolint:errcheck
-		Issuer:                base,
-		TokenEndpoint:         base + "/token",
-		GrantTypesSupported:   []string{"client_credentials"},
-		TokenEndpointAuthMethods: []string{"client_secret_post"},
+		Issuer:                        base,
+		AuthorizationEndpoint:         base + "/authorize",
+		TokenEndpoint:                 base + "/token",
+		ResponseTypesSupported:        []string{"code"},
+		GrantTypesSupported:           []string{"authorization_code"},
+		CodeChallengeMethodsSupported: []string{"S256"},
+		TokenEndpointAuthMethods:      []string{"none"},
 	})
 }
 
-// HandleToken issues an access token for valid client credentials.
+// HandleAuthorize handles GET /authorize — auto-approves and redirects back
+// with an authorization code. Since this is a single-user personal server
+// there is no login UI needed.
+func (o *OAuthServer) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	clientID := q.Get("client_id")
+	redirectURI := q.Get("redirect_uri")
+	challenge := q.Get("code_challenge")
+	method := q.Get("code_challenge_method")
+	state := q.Get("state")
+
+	if clientID != o.clientID {
+		http.Error(w, "unknown client", http.StatusBadRequest)
+		return
+	}
+	if method != "S256" {
+		http.Error(w, "only S256 code_challenge_method supported", http.StatusBadRequest)
+		return
+	}
+	if redirectURI == "" || challenge == "" {
+		http.Error(w, "missing required parameters", http.StatusBadRequest)
+		return
+	}
+
+	code := generateCode()
+	o.mu.Lock()
+	o.codes[code] = authCode{
+		challenge: challenge,
+		expiresAt: time.Now().Add(10 * time.Minute),
+	}
+	o.mu.Unlock()
+
+	location := redirectURI + "?code=" + code
+	if state != "" {
+		location += "&state=" + state
+	}
+	http.Redirect(w, r, location, http.StatusFound)
+}
+
+// HandleToken exchanges an authorization code for an access token.
 func (o *OAuthServer) HandleToken(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
-	grantType := r.FormValue("grant_type")
-	clientID := r.FormValue("client_id")
-	clientSecret := r.FormValue("client_secret")
-
-	// Also support HTTP Basic auth
-	if clientID == "" {
-		clientID, clientSecret, _ = r.BasicAuth()
-	}
-
-	// Also support bearer in Authorization header for secret
-	if clientSecret == "" {
-		if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
-			clientSecret = bearer
-		}
-	}
-
-	if grantType != "client_credentials" {
-		http.Error(w, `{"error":"unsupported_grant_type"}`, http.StatusBadRequest)
+	if r.FormValue("grant_type") != "authorization_code" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"unsupported_grant_type"}`)) //nolint:errcheck
 		return
 	}
 
-	if clientID != o.clientID || clientSecret != o.clientSecret {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error":"invalid_client"}`)) //nolint:errcheck
+	code := r.FormValue("code")
+	verifier := r.FormValue("code_verifier")
+
+	o.mu.Lock()
+	stored, ok := o.codes[code]
+	if ok {
+		delete(o.codes, code)
+	}
+	o.mu.Unlock()
+
+	if !ok || time.Now().After(stored.expiresAt) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"invalid_grant"}`)) //nolint:errcheck
+		return
+	}
+
+	if !verifyS256(verifier, stored.challenge) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"invalid_grant"}`)) //nolint:errcheck
 		return
 	}
 
@@ -93,6 +151,18 @@ func (o *OAuthServer) HandleToken(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(tokenResponse{ //nolint:errcheck
 		AccessToken: o.accessToken,
 		TokenType:   "Bearer",
-		ExpiresIn:   315360000, // 10 years — effectively non-expiring
+		ExpiresIn:   315360000,
 	})
+}
+
+func verifyS256(verifier, challenge string) bool {
+	h := sha256.Sum256([]byte(verifier))
+	computed := base64.RawURLEncoding.EncodeToString(h[:])
+	return computed == challenge
+}
+
+func generateCode() string {
+	b := make([]byte, 32)
+	rand.Read(b) //nolint:errcheck
+	return base64.RawURLEncoding.EncodeToString(b)
 }

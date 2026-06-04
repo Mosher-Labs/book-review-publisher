@@ -51,7 +51,10 @@ tasks:
   docker:run:
     desc: Run the Docker image locally (requires GITHUB_PAT env var)
     cmds:
-      - docker run --rm -p 8080:8080 -e GITHUB_PAT=${GITHUB_PAT} ghcr.io/mosher-labs/book-review-publisher:latest
+      - >-
+        docker run --rm -p 8080:8080
+        -e GITHUB_PAT=${GITHUB_PAT}
+        ghcr.io/mosher-labs/book-review-publisher:latest
 
   publish:example:
     desc: Send an example publish request to the local server
@@ -60,6 +63,6 @@ tasks:
         curl -s -X POST http://localhost:8080/publish \
           -H "Content-Type: application/json" \
           -d '{
-            "markdown": "---\ntitle: \"Example Book\"\ndate: 2024-01-15\n---\n\nGreat read!",
+            "markdown": "---\ntitle: Example\ndate: 2024-01-15\n---\n\nGreat!",
             "image_url": "https://via.placeholder.com/300x450.jpg"
           }' | jq .
