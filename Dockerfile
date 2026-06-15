@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o book-review-publisher ./cmd/server
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 RUN adduser -D -g "" appuser
 
