@@ -11,8 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-github/v72/github"
-	"golang.org/x/oauth2"
+	"github.com/google/go-github/v89/github"
 )
 
 const (
@@ -28,9 +27,11 @@ type Publisher struct {
 
 // New creates a Publisher authenticated with the given GitHub PAT.
 func New(pat string) *Publisher {
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: pat})
-	tc := oauth2.NewClient(context.Background(), ts)
-	return &Publisher{gh: github.NewClient(tc)}
+	client, err := github.NewClient(github.WithAuthToken(pat))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create GitHub client: %v", err))
+	}
+	return &Publisher{gh: client}
 }
 
 type publishRequest struct {
@@ -92,9 +93,9 @@ func (p *Publisher) publish(ctx context.Context, req publishRequest) (string, er
 		return "", fmt.Errorf("get ref: %w", err)
 	}
 
-	_, _, err = p.gh.Git.CreateRef(ctx, repoOwner, repoName, &github.Reference{
-		Ref:    github.Ptr("refs/heads/" + branchName),
-		Object: &github.GitObject{SHA: ref.Object.SHA},
+	_, _, err = p.gh.Git.CreateRef(ctx, repoOwner, repoName, github.CreateRef{
+		Ref: "refs/heads/" + branchName,
+		SHA: ref.Object.GetSHA(),
 	})
 	if err != nil {
 		return "", fmt.Errorf("create branch: %w", err)
