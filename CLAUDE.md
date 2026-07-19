@@ -10,7 +10,7 @@ a pull request via the GitHub API.
 
 - **Language:** Go 1.25
 - **Framework:** `net/http` standard library (no external router)
-- **GitHub client:** `github.com/google/go-github/v72`
+- **GitHub client:** `github.com/google/go-github/v89`
 - **Deployment:** k3s via ArgoCD (GitOps)
 - **Secret:** `GITHUB_PAT` env var from Kubernetes sealed secret
 
@@ -89,7 +89,7 @@ task lint           # run manually
 
 - [AGENT.md](AGENT.md) - Architecture details for AI agents
 - [RUNBOOK.md](RUNBOOK.md) - Deployment and operational procedures
-- [go-github docs](https://pkg.go.dev/github.com/google/go-github/v72/github)
+- [go-github docs](https://pkg.go.dev/github.com/google/go-github/v89/github)
 - [homelab-gitops](https://github.com/Mosher-Labs/homelab-gitops)
 
 ---
