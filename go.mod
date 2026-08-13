@@ -4,6 +4,7 @@ go 1.25.5
 
 require (
 	github.com/google/go-github/v89 v89.0.0
+	github.com/google/go-github/v90 v90.0.0
 	github.com/mark3labs/mcp-go v0.58.0
 )
 
