@@ -1,9 +1,10 @@
 module github.com/mosher-labs/book-review-publisher
 
-go 1.25.5
+go 1.26.0
 
 require (
 	github.com/google/go-github/v89 v89.0.0
+	github.com/google/go-github/v91 v91.0.0
 	github.com/mark3labs/mcp-go v0.58.0
 )
 
