@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-github/v89/github"
+	"github.com/google/go-github/v92/github"
 )
 
 const (
@@ -119,10 +119,10 @@ func (p *Publisher) publish(ctx context.Context, req publishRequest) (string, er
 		return "", fmt.Errorf("commit post: %w", err)
 	}
 
-	pr, _, err := p.gh.PullRequests.Create(ctx, repoOwner, repoName, &github.NewPullRequest{
+	pr, _, err := p.gh.PullRequests.Create(ctx, repoOwner, repoName, github.CreatePullRequest{
 		Title: github.Ptr(fmt.Sprintf("feat: add book review - %s", title)),
-		Head:  github.Ptr(branchName),
-		Base:  github.Ptr(baseBranch),
+		Head:  branchName,
+		Base:  baseBranch,
 		Body:  github.Ptr("Auto-generated book review post published via book-review-publisher."),
 	})
 	if err != nil {
