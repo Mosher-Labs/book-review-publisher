@@ -21,7 +21,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: book-review-publisher
-          image: ghcr.io/mosher-labs/book-review-publisher:latest
+          image: ghcr.io/mosher-labs/book-review-publisher:latest@sha256:ee9466924108030e511bb5d3ab4ac34fdd71c24adef9bc19150a0ff4e93a309c
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -67,7 +67,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
         - name: cloudflared
-          image: cloudflare/cloudflared:2026.9.3
+          image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
           args:
             - tunnel
             - --no-autoupdate
