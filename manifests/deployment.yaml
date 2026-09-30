@@ -21,7 +21,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: book-review-publisher
-          image: ghcr.io/mosher-labs/book-review-publisher:latest@sha256:ee9466924108030e511bb5d3ab4ac34fdd71c24adef9bc19150a0ff4e93a309c
+          image: ghcr.io/mosher-labs/book-review-publisher:latest@sha256:96409746d5e55486dc10e1c6efb0cea0fd32a7b0b0478119492efd202a63bd97
           ports:
             - containerPort: 8080
               protocol: TCP
