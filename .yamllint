@@ -2,6 +2,8 @@ extends: default
 
 rules:
   line-length:
+    # A digest-pinned value (image: repo:tag@sha256:<64 hex>) can't be wrapped.
+    allow-non-breakable-inline-mappings: true
     ignore:
       - .github/workflows
       - manifests/sealed-secret.yaml
