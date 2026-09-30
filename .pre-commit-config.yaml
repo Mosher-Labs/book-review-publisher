@@ -43,7 +43,7 @@ repos:
       - id: go-vet
       - id: go-unit-tests
   - repo: https://github.com/mosher-labs/pre-commit-autoupdate
-    rev: v1.2.4
+    rev: v1.2.5
     hooks:
       - id: autoupdate
   - repo: https://github.com/compilerla/conventional-pre-commit
