@@ -6,10 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-# No -s or -w: the OpenTelemetry Go eBPF agent needs the symbol table to
-# find the functions it hooks, and DWARF to find struct field offsets for
-# Go versions it has no cached offsets for (Go 1.27 in agent v0.24.0).
-RUN CGO_ENABLED=0 GOOS=linux go build -o book-review-publisher ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o book-review-publisher ./cmd/server
 
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 

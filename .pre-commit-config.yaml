@@ -40,8 +40,17 @@ repos:
     rev: fb24a639f7c938759fe56eeebbb7713b69d60494  # frozen: v0.5.1
     hooks:
       - id: go-fmt
-      - id: go-vet
       - id: go-unit-tests
+  # dnephin's go-vet runs `go list` at the module root, which has no Go
+  # files, so it fails on every Go change. Vet all packages instead.
+  - repo: local
+    hooks:
+      - id: go-vet
+        name: go vet
+        entry: go vet ./...
+        language: system
+        types: [go]
+        pass_filenames: false
   # Keeps the revs above current and frozen to commit SHAs. Without --freeze
   # it rewrites the pins to version tags. Checks at most once a day, and only
   # takes releases that are at least a week old.
