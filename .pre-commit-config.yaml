@@ -5,7 +5,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files
       - id: check-case-conflict
@@ -21,32 +21,32 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
   - repo: https://github.com/adrienverge/yamllint
-    rev: cba56bcde1fdd01c1deb3f945e69764c291a6530  # frozen: v1.38.0
+    rev: v1.38.0
     hooks:
       - id: yamllint
   - repo: https://github.com/markdownlint/markdownlint
-    rev: 7810020e1bf3cb3eef0733cd754bc5bc00a5de5a  # frozen: v0.18.1
+    rev: v0.18.1
     hooks:
       - id: markdownlint_docker
   - repo: https://github.com/rhysd/actionlint
-    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
+    rev: v1.7.12
     hooks:
       - id: actionlint-docker
   - repo: https://github.com/bridgecrewio/checkov
-    rev: 3.2.495
+    rev: 3.3.22
     hooks:
       - id: checkov_container
   - repo: https://github.com/dnephin/pre-commit-golang
-    rev: fb24a639f7c938759fe56eeebbb7713b69d60494  # frozen: v0.5.1
+    rev: v0.5.1
     hooks:
       - id: go-fmt
       - id: go-vet
       - id: go-unit-tests
   - repo: https://github.com/mosher-labs/pre-commit-autoupdate
-    rev: f5f1bacb246f72c3b5dfd4b1e2052aa727f944f4  # frozen: v1.2.7
+    rev: v1.2.7
     hooks:
       - id: autoupdate
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: 91ab4bf57e58b32adf1a122681f6ebe164d081c8  # frozen: v4.4.0
+    rev: v4.4.0
     hooks:
       - id: conventional-pre-commit
