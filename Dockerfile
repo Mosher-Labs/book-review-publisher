@@ -6,7 +6,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o book-review-publisher ./cmd/server
+# -w drops debug info but keeps the symbol table (no -s), which the
+# OpenTelemetry Go eBPF agent needs to find the functions it hooks.
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w" -o book-review-publisher ./cmd/server
 
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
