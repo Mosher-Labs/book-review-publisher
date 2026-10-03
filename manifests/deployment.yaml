@@ -14,15 +14,16 @@ spec:
       labels:
         app.kubernetes.io/name: book-review-publisher
       annotations:
-        # OpenTelemetry Go auto-instrumentation (homelab-gitops#153): the
-        # operator adds an eBPF sidecar that turns this binary's HTTP
-        # requests into traces, and the collector into request metrics.
-        instrumentation.opentelemetry.io/inject-go: "opentelemetry/default"
-        instrumentation.opentelemetry.io/otel-go-auto-target-exe: /usr/local/bin/book-review-publisher
+        # The app traces requests with the OpenTelemetry Go SDK. This
+        # annotation has the homelab's OpenTelemetry Operator inject the
+        # OTEL_* environment (collector endpoint, service name), and the
+        # collector turns the spans into request metrics.
+        instrumentation.opentelemetry.io/inject-sdk: "opentelemetry/default"
     spec:
-      # Non-root is set on the app container, not here: the injected eBPF
-      # sidecar has to run as root.
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
       containers:
         - name: book-review-publisher
@@ -56,9 +57,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            runAsGroup: 1000
-            runAsNonRoot: true
-            runAsUser: 1000
             capabilities:
               drop:
                 - ALL

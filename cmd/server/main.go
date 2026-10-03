@@ -7,15 +7,31 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mosher-labs/book-review-publisher/internal/auth"
 	"github.com/mosher-labs/book-review-publisher/internal/publisher"
+	"github.com/mosher-labs/book-review-publisher/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	shutdownTracing, err := telemetry.Setup(ctx, "book-review-publisher")
+	if err != nil {
+		slog.Error("telemetry setup failed", "error", err)
+		os.Exit(1)
+	}
+
 	pat := os.Getenv("GITHUB_PAT")
 	if pat == "" {
 		slog.Error("GITHUB_PAT environment variable is required")
@@ -45,11 +61,33 @@ func main() {
 	mux.HandleFunc("POST /token", oauth.HandleToken)
 	mux.Handle("/mcp", requireBearer(authToken, buildMCPHandler(pub).ServeHTTP))
 
-	addr := ":8080"
-	slog.Info("starting server", "addr", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil { //nolint:gosec
+	// otelhttp records a server span per request; withRoute adds the
+	// matched route so request metrics can be grouped by endpoint.
+	srv := &http.Server{ //nolint:gosec
+		Addr:    ":8080",
+		Handler: otelhttp.NewHandler(withRoute(mux), "http.server"),
+	}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("server shutdown failed", "error", err)
+		}
+	}()
+
+	slog.Info("starting server", "addr", srv.Addr)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
+	}
+
+	// Flush buffered spans before exiting.
+	flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := shutdownTracing(flushCtx); err != nil {
+		slog.Error("telemetry shutdown failed", "error", err)
 	}
 }
 
@@ -118,6 +156,23 @@ Then write the review body. Rules:
 	})
 
 	return server.NewStreamableHTTPServer(s)
+}
+
+// withRoute sets http.route on the request's span to the ServeMux pattern
+// that matched ("GET /publish" -> "/publish"), never the raw path, so IDs in
+// a URL can't create new metric series. Unmatched requests get no route.
+func withRoute(mux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.ServeHTTP(w, r)
+		if r.Pattern == "" {
+			return
+		}
+		route := r.Pattern
+		if _, path, ok := strings.Cut(route, " "); ok {
+			route = path
+		}
+		trace.SpanFromContext(r.Context()).SetAttributes(semconv.HTTPRoute(route))
+	})
 }
 
 func requireBearer(token string, next http.HandlerFunc) http.HandlerFunc {
