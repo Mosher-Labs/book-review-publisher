@@ -55,7 +55,7 @@ repos:
   # it rewrites the pins to version tags. Checks at most once a day, and only
   # takes releases that are at least a week old.
   - repo: https://github.com/mosher-labs/pre-commit-autoupdate
-    rev: b35a9aff30db30dcc67d86f87d696d1673b12d23  # frozen: v1.2.8
+    rev: 79cdf9233d720a9cd8bfb3f2cd715d45b2dd6bce  # frozen: v1.2.9
     hooks:
       - id: autoupdate
         args: [--freeze, --interval-hours, "24", --min-age-days, "7"]
