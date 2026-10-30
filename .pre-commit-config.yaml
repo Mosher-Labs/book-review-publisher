@@ -55,11 +55,11 @@ repos:
   # it rewrites the pins to version tags. Checks at most once a day, and only
   # takes releases that are at least a week old.
   - repo: https://github.com/mosher-labs/pre-commit-autoupdate
-    rev: 79cdf9233d720a9cd8bfb3f2cd715d45b2dd6bce  # frozen: v1.2.9
+    rev: 1933ea7de510320b15429daf2c8b7f34d6bd3c2a  # frozen: v1.2.10
     hooks:
       - id: autoupdate
         args: [--freeze, --interval-hours, "24", --min-age-days, "7"]
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: 91ab4bf57e58b32adf1a122681f6ebe164d081c8  # frozen: v4.4.0
+    rev: 33b50eb042bee26eac0ee96ad84aa9c1b4dccdd8  # frozen: v4.5.0
     hooks:
       - id: conventional-pre-commit
