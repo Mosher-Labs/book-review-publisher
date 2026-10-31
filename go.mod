@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/google/go-github/v92 v92.0.0
 	github.com/google/go-github/v93 v93.0.0
-	github.com/mark3labs/mcp-go v1.4.0
+	github.com/mark3labs/mcp-go v1.5.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
